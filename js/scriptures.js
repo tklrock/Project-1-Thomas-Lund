@@ -34,10 +34,12 @@ const Scriptures = (function () {
     // PRIVATE METHOD DECLARATIONS
     let ajax;
     let cacheBooks;
-    let init;
-    let displayVolumes;
-    let onHashChange;
     let navigateHome;
+
+    // PUBLIC API DECLARATIONS
+    let init;
+    let onHashChanged;
+    
 
     // PRIVATE METHODS
     ajax = function (url, successCallback, failureCallback) {
@@ -63,6 +65,7 @@ const Scriptures = (function () {
         request.onerror = failureCallback;
         request.send();
     };
+
     cacheBooks = function (callback) {
         volumes.forEach(function (volume) {
             let volumeBooks = [];
@@ -80,7 +83,7 @@ const Scriptures = (function () {
         }
     };
 
-    displayVolumes = function () {
+    navigateHome = function (volumeId) {
         let volumesList = "<ul>";
 
         volumes.forEach(function (volume) {
@@ -89,8 +92,11 @@ const Scriptures = (function () {
 
         volumesList += "</ul>";
         document.getElementById("scriptures").innerHTML = volumesList;
-    };
+        //NEEDS WORK
+    }
 
+
+    // PUBLIC API
     init = function (callback) {
         let booksLoaded = false;
         let volumesLoaded = false;
@@ -113,24 +119,47 @@ const Scriptures = (function () {
         });
     };
 
-    onHashChange = function () {
-        if (!window.location.hash || typeof(window.location.hash) !== "string") {
-            navigateHome();
-            return;
+    onHashChanged = function (event) {
+        let ids = [];
+
+        if(location.hash !== "" && location.hash.length > 1){
+            ids = location.hash.slice(1).split(":");
         }
-        let components = window.location.hash.slice(1).split(":");
-        if (components.length === 1) {
-            //Navigate to volume
+
+        if (ids.length <= 0){
+            navigateHome();
+        } else if (ids.length === 1){
+            const volumeId = Number(ids[0]);
+
+            if (volumes.map((volume) => volume.id).includes(volumeId)){
+                navigateHome(volumeId);
+            } else {
+                navigateHome();
+            }
+        } else {
+            const bookId = Number(ids[1]);
+
+
+            if(books[bookId] === undefined){
+                navigateHome();
+            } else {
+                if(ids.length ===2) {
+                    navigateBook(bookId);
+                } else {
+                    const chapter = Number(ids[2]);
+
+                    if (bookChapterValid(bookId, chapter)) {
+                        navigateChapter(bookId, chapter);
+                    } else {
+                        navigateHome();
+                    }
+                }
+            }
         }
     };
 
-    navigateHome = function () {
-        //Send to general home of all volumes
-    }
-
     return {
-        displayVolumes,
         init,
-        onHashChange
+        onHashChanged
     };
 }());

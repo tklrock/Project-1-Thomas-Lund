@@ -66,8 +66,8 @@
 
         ready(function () {
             Scriptures.init(function () {
-                window.addEventListener("hashchange", Scriptures.onHashChange)
-                Scriptures.displayVolumes();
+                window.addEventListener("hashchange", Scriptures.onHashChanged);
+                Scriptures.onHashChanged();
             });
         });
     </script>
