@@ -33,8 +33,11 @@ const Scriptures = (function () {
 
     // PRIVATE METHOD DECLARATIONS
     let ajax;
+    let booksGrid;
     let cacheBooks;
     let navigateHome;
+    let volumesGridContent;
+    let volumeTitle;
 
     // PUBLIC API DECLARATIONS
     let init;
@@ -83,17 +86,36 @@ const Scriptures = (function () {
         }
     };
 
-    navigateHome = function (volumeId) {
-        let volumesList = "<ul>";
+    booksGrid = function (volume) {
+        let gridContent = '<div class="books">';
 
-        volumes.forEach(function (volume) {
-            volumesList += `<li><h3>${volume.fullName}</h3></li>`;
+        volume.books.forEach(function (book) {
+            gridContent += `<a class="btn" id="${book.id}" href="#${volume.id}:${book.id}">${book.gridName}</a>`;
         });
 
-        volumesList += "</ul>";
-        document.getElementById("scriptures").innerHTML = volumesList;
-        //NEEDS WORK
+        return `${gridContent}</div>`;
     }
+
+    navigateHome = function (volumeId) {
+        document.getElementById("scriptures").innerHTML = `<div id="scripnav">${volumesGridContent(volumeId)}</div>`;
+    }
+
+    volumesGridContent = function(volumeId){
+        let gridContent = '';
+
+        volumes.forEach(function (volume) {
+            if(volumeId === undefined || volumeId === volume.id) {
+                gridContent += `<div class="volume">${volumeTitle(volume)}</div>`;
+                gridContent += booksGrid(volume);
+            }
+        });
+
+        return gridContent;
+    }
+
+    volumeTitle = function(volume) {
+        return `<a href="#${volume.id}"><h3>${volume.fullName}</h3></a>`;
+    };
 
 
     // PUBLIC API
