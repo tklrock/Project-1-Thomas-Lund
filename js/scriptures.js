@@ -20,11 +20,13 @@ const Scriptures = (function () {
     "use strict";
 
     // CONSTANTS
+    const DIV_SCRIPTURES = "scriptures";
     const REQUEST_GET = "GET";
     const REQUEST_STATUS_OK = 200;
     const REQUEST_STATUS_ERROR = 400;
     const URL_BASE = "https://scriptures.byu.edu/";
     const URL_BOOKS = `${URL_BASE}mapscrip/model/books.php`;
+    const URL_SCRIPTURES = `${URL_BASE}mapscrip/mapgetscrip.php`;
     const URL_VOLUMES = `${URL_BASE}mapscrip/model/volumes.php`;
 
     // PRIVATE VARIABLES
@@ -33,8 +35,13 @@ const Scriptures = (function () {
 
     // PRIVATE METHOD DECLARATIONS
     let ajax;
+    let bookChapterValid;
     let booksGrid;
     let cacheBooks;
+    let encodedScripturesUrl;
+    let getScripturesSuccess;
+    let getScripturesFailure;
+    let navigateChapter;
     let navigateHome;
     let volumesGridContent;
     let volumeTitle;
@@ -45,14 +52,18 @@ const Scriptures = (function () {
     
 
     // PRIVATE METHODS
-    ajax = function (url, successCallback, failureCallback) {
+    ajax = function (url, successCallback, failureCallback, skipJsonParse) {
         let request = new XMLHttpRequest();
-        request.open('GET', url, true);
+        request.open(REQUEST_GET, url, true);
 
         request.onload = function () {
-            if (request.status >= 200 && request.status < 400) {
+            if (request.status >= REQUEST_STATUS_OK && request.status < REQUEST_STATUS_ERROR) {
                 //Success!!
-                let data = JSON.parse(request.responseText);
+                let data = (
+                    skipJsonParse
+                        ? request.responseText
+                        : JSON.parse(request.responseText)
+                );
 
                 if (typeof successCallback === "function") {
                     successCallback(data);
@@ -86,6 +97,11 @@ const Scriptures = (function () {
         }
     };
 
+    bookChapterValid = function(bookId, chapter) {
+        //NEEDS WORK
+        return true;
+    };
+
     booksGrid = function (volume) {
         let gridContent = '<div class="books">';
 
@@ -94,11 +110,38 @@ const Scriptures = (function () {
         });
 
         return `${gridContent}</div>`;
+    };
+
+    encodedScripturesUrl = function (bookId, chapter, verses, isJst) {
+        let options = "";
+        if (bookId !== undefined && chapter !== undefined) {
+
+            if (verses !== undefined){
+                options += verses;
+            }
+            if (isJst !== undefined){
+                options += "&jst=JST";
+            }
+        }
+
+        return `${URL_SCRIPTURES}?book=${bookId}&chap=${chapter}&verses${options}`;
     }
 
+    getScripturesFailure = function () {
+        document.getElementById(DIV_SCRIPTURES).innerHTML = `Unable to retrieve chapter contents.`;
+    };
+
+    getScripturesSuccess = function (chapterHtml) {
+        document.getElementById(DIV_SCRIPTURES).innerHTML = chapterHtml;
+    };
+
+    navigateChapter = function (bookId, chapter) {
+        ajax(encodedScripturesUrl(bookId, chapter), getScripturesSuccess, getScripturesFailure, true);
+    };
+
     navigateHome = function (volumeId) {
-        document.getElementById("scriptures").innerHTML = `<div id="scripnav">${volumesGridContent(volumeId)}</div>`;
-    }
+        document.getElementById(DIV_SCRIPTURES).innerHTML = `<div id="scripnav">${volumesGridContent(volumeId)}</div>`;
+    };
 
     volumesGridContent = function(volumeId){
         let gridContent = '';
@@ -111,7 +154,7 @@ const Scriptures = (function () {
         });
 
         return gridContent;
-    }
+    };
 
     volumeTitle = function(volume) {
         return `<a href="#${volume.id}"><h3>${volume.fullName}</h3></a>`;
@@ -166,7 +209,8 @@ const Scriptures = (function () {
                 navigateHome();
             } else {
                 if(ids.length ===2) {
-                    navigateBook(bookId);
+                    // NEEDS WORKS
+                    // navigateBook(bookId);
                 } else {
                     const chapter = Number(ids[2]);
 
