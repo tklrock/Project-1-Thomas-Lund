@@ -1,0 +1,75 @@
+<!doctype html>
+<html class="no-js" lang="">
+<head>
+    <meta charset="utf-8">
+    <title>The Scriptures, Mapped</title>
+    <meta name="description" content="The Standard Works, Mapped">
+    <meta name="author" content="Thomas Lund">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta property="og:title" content="">
+    <meta property="og:type" content="">
+    <meta property="og:url" content="">
+    <meta property="og:image" content="">
+
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+
+    <meta name="theme-color" content="#fafafa">
+
+    <script defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCxASdA12zgdNNwW4tCu_0B4NrCpF3_cDM&callback=initMap">
+    </script>
+    <script defer src="https://unpkg.com/@googlemaps/markerwithlabel/dist/index.min.js"></script>
+</head>
+<body>
+
+    <header id="header">
+        <div id="crumbs"></div>
+        <div id="centerhead">
+            <div class="title">The Scriptures, Mapped</div>
+            <div class="subtitle">Thomas Lund</div>
+        </div>
+    </header>
+    <div id="content">
+        <nav id="scriptures"></nav>
+        <article id="map"></article>
+    </div>
+
+    <script src="js/scriptures.js"></script>
+
+    <script type="text/javascript">
+        let map;
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 40.0, lng: -111.0 },
+                zoom: 4,
+                mapTypeId: "terrain",
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullScreenControl: false,
+                zoomControl: true,
+                zoomControlOptions: {
+                    position: google.maps.ControlPosition.RIGHT_BOTTOM
+                }
+            });
+        }
+
+        function ready(readyListener) {
+            if(document.readyState !== "loading"){
+                readyListener();
+            } else {
+                document.addEventListener("DOMContentLoaded", readyListener);
+            }
+        }
+
+        ready(function () {
+            Scriptures.init(function () {
+                window.addEventListener("hashchange", Scriptures.onHashChange)
+                Scriptures.displayVolumes();
+            });
+        });
+    </script>
+</body>
+</html>
