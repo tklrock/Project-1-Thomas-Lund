@@ -35,12 +35,17 @@ const Scriptures = (function () {
 
     // PRIVATE METHOD DECLARATIONS
     let ajax;
+    let backButton;
     let bookChapterValid;
     let booksGrid;
+    let booksGridContent;
+    let bookTitle;
     let cacheBooks;
+    let chaptersGrid;
     let encodedScripturesUrl;
     let getScripturesSuccess;
     let getScripturesFailure;
+    let navigateBook;
     let navigateChapter;
     let navigateHome;
     let volumesGridContent;
@@ -80,6 +85,48 @@ const Scriptures = (function () {
         request.send();
     };
 
+    backButton = function(href, name) {
+        return `<a href=${href}><h5>\u003c Back to ${name}</h5></a>`
+    };
+
+    bookChapterValid = function(bookId, chapter) {
+        //NEEDS WORK
+        return true;
+    };
+
+    booksGrid = function (volume) {
+        let gridContent = '<div class="books">';
+
+        volume.books.forEach(function (book) {
+            console.log(book);
+            gridContent += `<a class="btn" id="${book.id}" href="#${volume.id}:${book.id}">${book.gridName}</a>`;
+        });
+
+        return `${gridContent}</div>`;
+    };
+
+    booksGridContent = function (bookId) {
+
+        let book = books[bookId];    
+        let gridContent = '';
+
+        if(book.numChapters === 0){
+            navigateChapter(bookId, 0)
+        } else if (book.numChapters === 1) {
+            navigateChapter(bookId, 1)
+        } else {
+            gridContent += backButton(`#${book.parentBookId}`, volumes[book.parentBookId - 1].fullName)
+            gridContent += `<div class="volume">${bookTitle(book)}</div>`;
+            gridContent += chaptersGrid(book);
+        }       
+
+        return gridContent;
+    };
+
+    bookTitle = function(book){
+        return `<a href="#${book.parentBookId}:${book.id}"><h3>${book.fullName}</h3></a>`;
+    }
+
     cacheBooks = function (callback) {
         volumes.forEach(function (volume) {
             let volumeBooks = [];
@@ -97,18 +144,14 @@ const Scriptures = (function () {
         }
     };
 
-    bookChapterValid = function(bookId, chapter) {
-        //NEEDS WORK
-        return true;
-    };
-
-    booksGrid = function (volume) {
+    chaptersGrid = function(book){
         let gridContent = '<div class="books">';
 
-        volume.books.forEach(function (book) {
-            gridContent += `<a class="btn" id="${book.id}" href="#${volume.id}:${book.id}">${book.gridName}</a>`;
-        });
-
+        let i = 1;
+        while (i <= book.numChapters) {
+            gridContent += `<a class="btn" id="${i}" href="#${book.parentBookId}:${book.id}:${i}">${i}</a>`;
+            i++;
+        }
         return `${gridContent}</div>`;
     };
 
@@ -134,6 +177,10 @@ const Scriptures = (function () {
     getScripturesSuccess = function (chapterHtml) {
         document.getElementById(DIV_SCRIPTURES).innerHTML = chapterHtml;
     };
+
+    navigateBook = function(bookId) {
+        document.getElementById(DIV_SCRIPTURES).innerHTML = `<div id="scripnav">${booksGridContent(bookId)}</div>`;
+    }
 
     navigateChapter = function (bookId, chapter) {
         ajax(encodedScripturesUrl(bookId, chapter), getScripturesSuccess, getScripturesFailure, true);
@@ -209,8 +256,7 @@ const Scriptures = (function () {
                 navigateHome();
             } else {
                 if(ids.length ===2) {
-                    // NEEDS WORKS
-                    // navigateBook(bookId);
+                    navigateBook(bookId);
                 } else {
                     const chapter = Number(ids[2]);
 
