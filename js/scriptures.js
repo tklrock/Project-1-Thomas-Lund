@@ -21,6 +21,7 @@ const Scriptures = (function () {
 
     // CONSTANTS
     const DIV_SCRIPTURES = "scriptures";
+    const DIV_NAV = "crumbs";
     const REQUEST_GET = "GET";
     const REQUEST_STATUS_OK = 200;
     const REQUEST_STATUS_ERROR = 400;
@@ -35,19 +36,20 @@ const Scriptures = (function () {
 
     // PRIVATE METHOD DECLARATIONS
     let ajax;
-    let backButton;
     let bookChapterValid;
     let booksGrid;
     let booksGridContent;
     let bookTitle;
     let cacheBooks;
     let chaptersGrid;
+    let crumbsBar;
     let encodedScripturesUrl;
     let getScripturesSuccess;
     let getScripturesFailure;
     let navigateBook;
     let navigateChapter;
     let navigateHome;
+    let prevNext;
     let volumesGridContent;
     let volumeTitle;
 
@@ -85,20 +87,18 @@ const Scriptures = (function () {
         request.send();
     };
 
-    backButton = function(href, name) {
-        return `<a href=${href}><h5>\u003c Back to ${name}</h5></a>`
-    };
-
     bookChapterValid = function(bookId, chapter) {
-        //NEEDS WORK
-        return true;
+        let validChapter = true;
+        if(chapter > books[bookId].numChapters){
+            validChapter = false;
+        }
+        return validChapter;
     };
 
     booksGrid = function (volume) {
         let gridContent = '<div class="books">';
 
         volume.books.forEach(function (book) {
-            console.log(book);
             gridContent += `<a class="btn" id="${book.id}" href="#${volume.id}:${book.id}">${book.gridName}</a>`;
         });
 
@@ -110,15 +110,8 @@ const Scriptures = (function () {
         let book = books[bookId];    
         let gridContent = '';
 
-        if(book.numChapters === 0){
-            navigateChapter(bookId, 0)
-        } else if (book.numChapters === 1) {
-            navigateChapter(bookId, 1)
-        } else {
-            gridContent += backButton(`#${book.parentBookId}`, volumes[book.parentBookId - 1].fullName)
-            gridContent += `<div class="volume">${bookTitle(book)}</div>`;
-            gridContent += chaptersGrid(book);
-        }       
+        gridContent += `<div class="volume">${bookTitle(book)}</div>`;
+        gridContent += chaptersGrid(book);
 
         return gridContent;
     };
@@ -155,6 +148,27 @@ const Scriptures = (function () {
         return `${gridContent}</div>`;
     };
 
+    crumbsBar = function(volumeId, bookId, chapter) {
+        let navigation = '';
+        if(volumeId !== undefined){
+            navigation += `<a href='#'>The Scriptures</a>`;
+            if(bookId !== undefined){
+                navigation += ` > <a href='#${volumeId}'>${volumes[volumeId - 1].fullName}</a>`;
+                if(chapter !== undefined && chapter !== 0){
+                    navigation += ` > <a href='#${volumeId}:${bookId}'>${books[bookId].fullName}</a>`;
+                    navigation += ` > ${chapter}`
+                } else {
+                    navigation += ` > ${books[bookId].fullName}`;
+                }
+            } else {
+                navigation += ` > ${volumes[volumeId - 1].fullName}`;
+            }
+        } else {
+            navigation += 'The Scriptures';
+        }
+        document.getElementById(DIV_NAV).innerHTML = navigation;
+    };
+
     encodedScripturesUrl = function (bookId, chapter, verses, isJst) {
         let options = "";
         if (bookId !== undefined && chapter !== undefined) {
@@ -175,20 +189,99 @@ const Scriptures = (function () {
     };
 
     getScripturesSuccess = function (chapterHtml) {
-        document.getElementById(DIV_SCRIPTURES).innerHTML = chapterHtml;
+        document.getElementById(DIV_SCRIPTURES).innerHTML += chapterHtml;
     };
 
     navigateBook = function(bookId) {
-        document.getElementById(DIV_SCRIPTURES).innerHTML = `<div id="scripnav">${booksGridContent(bookId)}</div>`;
+        let book = books[bookId];
+        if(book.numChapters <= 1){
+            navigateChapter(bookId, book.numChapters);
+        } else {
+            crumbsBar(books[bookId].parentBookId, bookId);
+            document.getElementById(DIV_SCRIPTURES).innerHTML = `<div id="scripnav">${booksGridContent(bookId)}</div>`;
+        }
     }
 
     navigateChapter = function (bookId, chapter) {
+        crumbsBar(books[bookId].parentBookId, bookId, chapter);
+        prevNext(bookId, chapter);
         ajax(encodedScripturesUrl(bookId, chapter), getScripturesSuccess, getScripturesFailure, true);
     };
 
     navigateHome = function (volumeId) {
+        crumbsBar(volumeId);
         document.getElementById(DIV_SCRIPTURES).innerHTML = `<div id="scripnav">${volumesGridContent(volumeId)}</div>`;
     };
+
+    prevNext = function(bookId, chapter) {
+        const volumeId = books[bookId].parentBookId;
+        const firstBook = volumes[0].books[0].id;
+
+        const volumeBooks = volumes[volumeId-1].books;
+
+        const firstBookInVolume = volumeBooks[0].id;
+        const lastBookInVolume = volumeBooks[volumeBooks.length - 1].id;
+
+        const firstChapterInBook = books[bookId].numChapters >= 1
+            ? 1
+            : books[bookId].numChapters;
+        const lastChapterInBook = books[bookId].numChapters;
+
+        let prevVolume;
+        let prevBook;
+        let prevChapter;
+
+        let nextVolume = volumeId;
+        let nextBook = bookId;
+        let nextChapter = chapter + 1;
+
+        let prevNextButtons = ''
+        prevNextButtons += `<div class='navTitle nextprev'>`;
+
+        if(bookId > firstBook || chapter - 1 > 0 || volumeId - 1 > 0){
+            if(chapter - 1 < firstChapterInBook){
+                if(bookId - 1 < firstBookInVolume){
+                    prevVolume = volumeId - 1;
+                    const prevVolumeBooks = volumes[prevVolume - 1].books;
+                    prevBook = prevVolumeBooks[prevVolumeBooks.length - 1].id;
+                } else {
+                    prevVolume = volumeId;
+                    prevBook = bookId - 1;
+                }
+                prevChapter = books[prevBook].numChapters;
+            } else {
+                prevVolume = volumeId;
+                prevBook = bookId;
+                prevChapter = chapter - 1;
+            }
+            prevNextButtons += `<a href='#${prevVolume}:${prevBook}:${prevChapter}'><i class="material-icons">skip_previous</i></a>`;
+        }
+
+        if(volumeId < volumes.length || bookId < lastBookInVolume || chapter < lastChapterInBook){
+            if(chapter + 1 > lastChapterInBook){
+                if(bookId + 1 > lastBookInVolume){
+                    nextVolume = volumeId + 1;
+                    const nextVolumeBooks = volumes[nextVolume - 1].books;
+                    nextBook = nextVolumeBooks[0].id
+                } else {
+                    nextVolume = volumeId;
+                    nextBook = bookId + 1;
+                }
+                nextChapter = books[nextBook].numChapters >= 1
+                    ? 1
+                    : books[nextBook].numChapters;
+            } else {
+                nextVolume = volumeId;
+                nextBook = bookId;
+                nextChapter = chapter + 1;
+            }
+            prevNextButtons += `<a href='#${nextVolume}:${nextBook}:${nextChapter}'><i class="material-icons">skip_next</i></a>`;
+        }
+        
+        prevNextButtons += `</div>`;
+
+        document.getElementById(DIV_SCRIPTURES).innerHTML = prevNextButtons;
+    }
 
     volumesGridContent = function(volumeId){
         let gridContent = '';
@@ -250,7 +343,6 @@ const Scriptures = (function () {
             }
         } else {
             const bookId = Number(ids[1]);
-
 
             if(books[bookId] === undefined){
                 navigateHome();
