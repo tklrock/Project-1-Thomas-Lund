@@ -365,6 +365,7 @@ const Scriptures = (function () {
             });
 
             uniqueGeoPlaces.forEach(geoplace => {
+                // MarkerWithLabel used from markerWithLabel package from unpkg.com
                 const marker = new markerWithLabel.MarkerWithLabel({
                     labelAnchor: new google.maps.Point(0, -3),
                     labelClass: "maplabel",
