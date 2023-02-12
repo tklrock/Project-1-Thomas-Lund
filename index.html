@@ -40,11 +40,13 @@
 
     <script type="text/javascript">
         let map;
+        let markers = [];
+        let showLocation;
 
         function initMap() {
             map = new google.maps.Map(document.getElementById("map"), {
-                center: { lat: 40.0, lng: -111.0 },
-                zoom: 4,
+                center: { lat: 31.771958, lng: 35.217019 },
+                zoom: 8,
                 mapTypeId: "terrain",
                 mapTypeControl: false,
                 streetViewControl: false,
@@ -68,6 +70,7 @@
             Scriptures.init(function () {
                 window.addEventListener("hashchange", Scriptures.onHashChanged);
                 Scriptures.onHashChanged();
+                showLocation = Scriptures.showLocation;
             });
         });
     </script>

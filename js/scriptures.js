@@ -42,20 +42,29 @@ const Scriptures = (function () {
     let bookTitle;
     let cacheBooks;
     let chaptersGrid;
+    let clearMarkers;
     let crumbsBar;
     let encodedScripturesUrl;
-    let getScripturesSuccess;
     let getScripturesFailure;
+    let getScripturesSuccess;
+    let indexOfMatchingPlace;
     let navigateBook;
     let navigateChapter;
     let navigateHome;
-    let prevNext;
+    let parseLocations;
+    let navNextChapter;
+    let navPrevNext;
+    let navPreviousChapter;
+    let sameLocation;
+    let showGeoPlaces;
+    let uniqueGeoPlaces;
     let volumesGridContent;
     let volumeTitle;
 
     // PUBLIC API DECLARATIONS
     let init;
     let onHashChanged;
+    let showLocation;
     
 
     // PRIVATE METHODS
@@ -88,9 +97,12 @@ const Scriptures = (function () {
     };
 
     bookChapterValid = function(bookId, chapter) {
-        let validChapter = true;
-        if(chapter > books[bookId].numChapters){
-            validChapter = false;
+        let validChapter = false;
+        let firstChapter = books[bookId].numChapters >= 1
+            ? 1
+            : books[bookId].numChapters;
+        if(chapter <= books[bookId].numChapters && chapter >= firstChapter){
+            validChapter = true;
         }
         return validChapter;
     };
@@ -105,9 +117,8 @@ const Scriptures = (function () {
         return `${gridContent}</div>`;
     };
 
-    booksGridContent = function (bookId) {
+    booksGridContent = function (book) {
 
-        let book = books[bookId];    
         let gridContent = '';
 
         gridContent += `<div class="volume">${bookTitle(book)}</div>`;
@@ -118,7 +129,7 @@ const Scriptures = (function () {
 
     bookTitle = function(book){
         return `<a href="#${book.parentBookId}:${book.id}"><h3>${book.fullName}</h3></a>`;
-    }
+    };
 
     cacheBooks = function (callback) {
         volumes.forEach(function (volume) {
@@ -148,6 +159,13 @@ const Scriptures = (function () {
         return `${gridContent}</div>`;
     };
 
+    clearMarkers = function() {
+        markers.forEach ( marker => {
+            marker.setMap(null);
+        });
+        markers = [];
+    };
+
     crumbsBar = function(volumeId, bookId, chapter) {
         let navigation = '';
         if(volumeId !== undefined){
@@ -156,7 +174,7 @@ const Scriptures = (function () {
                 navigation += ` > <a href='#${volumeId}'>${volumes[volumeId - 1].fullName}</a>`;
                 if(chapter !== undefined && chapter !== 0){
                     navigation += ` > <a href='#${volumeId}:${bookId}'>${books[bookId].fullName}</a>`;
-                    navigation += ` > ${chapter}`
+                    navigation += ` > ${chapter}`;
                 } else {
                     navigation += ` > ${books[bookId].fullName}`;
                 }
@@ -182,7 +200,7 @@ const Scriptures = (function () {
         }
 
         return `${URL_SCRIPTURES}?book=${bookId}&chap=${chapter}&verses${options}`;
-    }
+    };
 
     getScripturesFailure = function () {
         document.getElementById(DIV_SCRIPTURES).innerHTML = `Unable to retrieve chapter contents.`;
@@ -190,6 +208,21 @@ const Scriptures = (function () {
 
     getScripturesSuccess = function (chapterHtml) {
         document.getElementById(DIV_SCRIPTURES).innerHTML += chapterHtml;
+
+        parseLocations();
+    };
+
+    indexOfMatchingPlace = function(array, geoplace) {
+        let index = -1;
+
+        for (let i = 0; i < array.length; i++){
+            if (sameLocation(array[i], geoplace)) {
+                index = i;
+                break;
+            }
+        }
+
+        return index;
     };
 
     navigateBook = function(bookId) {
@@ -198,90 +231,182 @@ const Scriptures = (function () {
             navigateChapter(bookId, book.numChapters);
         } else {
             crumbsBar(books[bookId].parentBookId, bookId);
-            document.getElementById(DIV_SCRIPTURES).innerHTML = `<div id="scripnav">${booksGridContent(bookId)}</div>`;
+            document.getElementById(DIV_SCRIPTURES).innerHTML = `<div id="scripnav">${booksGridContent(book)}</div>`;
+            clearMarkers();
         }
-    }
+    };
 
     navigateChapter = function (bookId, chapter) {
         crumbsBar(books[bookId].parentBookId, bookId, chapter);
-        prevNext(bookId, chapter);
+        navPrevNext(bookId, chapter);
         ajax(encodedScripturesUrl(bookId, chapter), getScripturesSuccess, getScripturesFailure, true);
     };
 
     navigateHome = function (volumeId) {
         crumbsBar(volumeId);
         document.getElementById(DIV_SCRIPTURES).innerHTML = `<div id="scripnav">${volumesGridContent(volumeId)}</div>`;
+        clearMarkers();
     };
 
-    prevNext = function(bookId, chapter) {
-        const volumeId = books[bookId].parentBookId;
-        const firstBook = volumes[0].books[0].id;
-
-        const volumeBooks = volumes[volumeId-1].books;
-
-        const firstBookInVolume = volumeBooks[0].id;
-        const lastBookInVolume = volumeBooks[volumeBooks.length - 1].id;
-
-        const firstChapterInBook = books[bookId].numChapters >= 1
-            ? 1
-            : books[bookId].numChapters;
-        const lastChapterInBook = books[bookId].numChapters;
-
-        let prevVolume;
-        let prevBook;
-        let prevChapter;
+    navNextChapter = function (volumeId, bookId, chapter, lastBookInVolume, lastChapterInBook) {
 
         let nextVolume = volumeId;
         let nextBook = bookId;
         let nextChapter = chapter + 1;
 
+        if(chapter + 1 > lastChapterInBook){
+            if(bookId + 1 > lastBookInVolume){
+                nextVolume = volumeId + 1;
+                const nextVolumeBooks = volumes[nextVolume - 1].books;
+                nextBook = nextVolumeBooks[0].id
+            } else {
+                nextVolume = volumeId;
+                nextBook = bookId + 1;
+            }
+            nextChapter = books[nextBook].numChapters >= 1
+                ? 1
+                : books[nextBook].numChapters;
+        } else {
+            nextVolume = volumeId;
+            nextBook = bookId;
+            nextChapter = chapter + 1;
+        }
+        return `<a href='#${nextVolume}:${nextBook}:${nextChapter}'><i class="material-icons">skip_next</i></a>`;
+    };
+
+    navPrevNext = function(bookId, chapter) {
+        const volumeId = books[bookId].parentBookId;
+        const volumeBooks = volumes[volumeId-1].books;
+        const firstBook = volumes[0].books[0].id;
+
+        const firstBookInVolume = volumeBooks[0].id;
+        const firstChapterInBook = books[bookId].numChapters >= 1
+            ? 1
+            : books[bookId].numChapters;
+
+        const lastBookInVolume = volumeBooks[volumeBooks.length - 1].id;
+        const lastChapterInBook = books[bookId].numChapters;
+
         let prevNextButtons = ''
         prevNextButtons += `<div class='navTitle nextprev'>`;
 
         if(bookId > firstBook || chapter - 1 > 0 || volumeId - 1 > 0){
-            if(chapter - 1 < firstChapterInBook){
-                if(bookId - 1 < firstBookInVolume){
-                    prevVolume = volumeId - 1;
-                    const prevVolumeBooks = volumes[prevVolume - 1].books;
-                    prevBook = prevVolumeBooks[prevVolumeBooks.length - 1].id;
-                } else {
-                    prevVolume = volumeId;
-                    prevBook = bookId - 1;
-                }
-                prevChapter = books[prevBook].numChapters;
-            } else {
-                prevVolume = volumeId;
-                prevBook = bookId;
-                prevChapter = chapter - 1;
-            }
-            prevNextButtons += `<a href='#${prevVolume}:${prevBook}:${prevChapter}'><i class="material-icons">skip_previous</i></a>`;
+            prevNextButtons += navPreviousChapter(volumeId, bookId, chapter, firstBookInVolume, firstChapterInBook);
         }
 
         if(volumeId < volumes.length || bookId < lastBookInVolume || chapter < lastChapterInBook){
-            if(chapter + 1 > lastChapterInBook){
-                if(bookId + 1 > lastBookInVolume){
-                    nextVolume = volumeId + 1;
-                    const nextVolumeBooks = volumes[nextVolume - 1].books;
-                    nextBook = nextVolumeBooks[0].id
-                } else {
-                    nextVolume = volumeId;
-                    nextBook = bookId + 1;
-                }
-                nextChapter = books[nextBook].numChapters >= 1
-                    ? 1
-                    : books[nextBook].numChapters;
-            } else {
-                nextVolume = volumeId;
-                nextBook = bookId;
-                nextChapter = chapter + 1;
-            }
-            prevNextButtons += `<a href='#${nextVolume}:${nextBook}:${nextChapter}'><i class="material-icons">skip_next</i></a>`;
+            prevNextButtons += navNextChapter(volumeId, bookId, chapter, lastBookInVolume, lastChapterInBook);
         }
         
         prevNextButtons += `</div>`;
 
         document.getElementById(DIV_SCRIPTURES).innerHTML = prevNextButtons;
-    }
+    };
+
+    navPreviousChapter = function (volumeId, bookId, chapter, firstBookInVolume, firstChapterInBook) {
+
+        let prevVolume;
+        let prevBook;
+        let prevChapter;
+
+        if(chapter - 1 < firstChapterInBook){
+            if(bookId - 1 < firstBookInVolume){
+                prevVolume = volumeId - 1;
+                const prevVolumeBooks = volumes[prevVolume - 1].books;
+                prevBook = prevVolumeBooks[prevVolumeBooks.length - 1].id;
+            } else {
+                prevVolume = volumeId;
+                prevBook = bookId - 1;
+            }
+            prevChapter = books[prevBook].numChapters;
+        } else {
+            prevVolume = volumeId;
+            prevBook = bookId;
+            prevChapter = chapter - 1;
+        }
+
+        return `<a href='#${prevVolume}:${prevBook}:${prevChapter}'><i class="material-icons">skip_previous</i></a>`;
+    };
+
+    parseLocations = function () {
+        const locationsTags = document.querySelectorAll("a[onClick^=showLocation]");
+        const locations = [];
+
+        const startIndex = "showLocation(".length;
+
+        locationsTags.forEach(location => {
+            let separatedLocation = location.attributes[1].nodeValue.slice(startIndex, -1).replaceAll("'","").split(',');
+
+            locations.push({
+                name: separatedLocation[1],
+                latitude: parseFloat(separatedLocation[2]),
+                longitude: parseFloat(separatedLocation[3]),
+                viewAltitude: parseFloat(separatedLocation[8])
+            });
+        })
+
+        uniqueGeoPlaces(locations);
+    };
+
+    sameLocation = function(place1, place2) {
+        return (Math.abs(place1.latitude - place2.latitude) < .000000000001) && (Math.abs(place1.longitude - place2.longitude) < .000000000001);
+    };
+
+    showGeoPlaces = function (uniqueGeoPlaces) {
+        clearMarkers();
+
+        if (uniqueGeoPlaces.length !== undefined && uniqueGeoPlaces.length > 0) {
+            const bounds = new google.maps.LatLngBounds();
+
+            map.setZoom(uniqueGeoPlaces[0].viewAltitude / 454);
+            map.setCenter({
+                lat: uniqueGeoPlaces[0].latitude,
+                lng: uniqueGeoPlaces[0].longitude
+            });
+
+            uniqueGeoPlaces.forEach(geoplace => {
+                const marker = new markerWithLabel.MarkerWithLabel({
+                    labelAnchor: new google.maps.Point(0, -3),
+                    labelClass: "maplabel",
+                    labelContent: geoplace.name,
+                    map,
+                    position: {
+                        lat: geoplace.latitude,
+                        lng: geoplace.longitude
+                    }
+                });
+
+                markers.push(marker);
+
+                if(uniqueGeoPlaces.length > 1) {
+                    bounds.extend(marker.position);
+                }
+            });
+
+            if(uniqueGeoPlaces.length > 1){
+                map.fitBounds(bounds);
+            }
+
+        }
+    };
+
+    uniqueGeoPlaces = function (geoplaces) {
+        const uniquePlaces = [];
+
+        geoplaces.forEach(geoplace => {
+            let i = indexOfMatchingPlace(uniquePlaces, geoplace);
+
+            if (i >= 0){
+                if (!uniquePlaces[i].name.includes(geoplace.name)) {
+                    uniquePlaces[i].name += `, ${geoplace.name}`;
+                }
+            } else {
+                uniquePlaces.push(geoplace);
+            }
+        })
+
+        showGeoPlaces(uniquePlaces);
+    };
 
     volumesGridContent = function(volumeId){
         let gridContent = '';
@@ -362,8 +487,18 @@ const Scriptures = (function () {
         }
     };
 
+    showLocation = function (geotagId, placename, latitude, longitude, viewLatittude, viewLongitude, viewTilt, viewRoll, viewAltitude, viewHeading) {
+        showGeoPlaces([{
+            latitude,
+            longitude,
+            name: placename,
+            viewAltitude
+        }]);
+    };
+
     return {
         init,
-        onHashChanged
+        onHashChanged,
+        showLocation
     };
 }());
